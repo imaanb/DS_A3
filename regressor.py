@@ -1,23 +1,27 @@
 import numpy as np
 import pandas as pd
+import tensorflow as tf
+
 import time
-from sklearn.ensemble import RandomForestRegressor, BaggingRegressor
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.tree import DecisionTreeRegressor
 from nltk.stem.snowball import SnowballStemmer
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split, RandomizedSearchCV
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.metrics import accuracy_score
 from sklearn.linear_model import Lasso, Ridge
 from sklearn.svm import SVR
 from scipy.stats import randint, uniform
 from scipy.sparse import csr_matrix
 import warnings
 import re
-import numpy as np
-import pandas as pd
-import tensorflow as tf
 from keras import layers, models
-
+from sklearn.model_selection import RandomizedSearchCV
+from scikeras.wrappers import KerasRegressor
+from models import create_DL_model_shallow, create_DL_model_deep, create_knn_model, create_tree_model
 warnings.filterwarnings("ignore")
 warnings.filterwarnings("ignore")
 
@@ -44,13 +48,9 @@ df_concatenated = df_attributes.fillna('').groupby('product_uid')['value'].apply
 df_all = pd.merge(df_train, df_pro_desc, how='left', on='product_uid')
 df_all = pd.merge(df_all, df_concatenated, how='left', on='product_uid')
 
-
-
 # Stemming function
 def str_stemmer(s):
     return " ".join([stemmer.stem(word) for word in s.lower().split()])
-
-
 
 # Preprocess text data
 df_all['search_term'] = df_all['search_term'].astype(str)
@@ -133,47 +133,82 @@ X = np.hstack((search_term_tfidf.toarray(), X_other_features))
 X_train, X_test, y_train, y_test = train_test_split(X, df_train['relevance'].values, test_size=0.2, random_state=42)
 
 
+
+#COMPILING MODELS 
+
+
+# 1. shallow deep learning network: 2 hidden layers: 
 """
-# Check shapes of train and test data
-print("Shape of X_train:", X_train.shape)
-print("Shape of X_test:", X_test.shape)
-print("Shape of y_train:", y_train.shape)
+dl_model = create_DL_model_shallow(X_train.shape[1])
+dl_model.compile(optimizer='adam', loss='mse', metrics=['mae'])  # Mean Squared Error loss for regression
 
-# Check random state used for train_test_split
-print("Random state used for train_test_split:", 42)
+# Train the deeplearning model
+dl_history = dl_model.fit(X_train, y_train, epochs=10, batch_size=32, validation_split=0.2)
 
-# Check distribution of target variable in train and test data
-print("Train data - relevance distribution:")
-print(df_train['relevance'].value_counts(normalize=True))
+#train the machine learning model
 
-"""
+# Evaluating the models
+dl_test_loss, dl_test_mae = dl_model.evaluate(X_test, y_test)
+print("Test Loss deep learning model:", dl_test_loss)
+print("Test MAE deep leanring model:", dl_test_mae)
 
-def create_model(input_shape):
-    model = models.Sequential()
-    model.add(layers.Dense(128, activation='relu', input_shape=(input_shape,)))
-    model.add(layers.Dense(64, activation='relu'))
-    model.add(layers.Dense(1))  
-    return model
-
-# Compile the model
-model = create_model(X_train.shape[1])
-model.compile(optimizer='adam', loss='mse', metrics=['mae'])  # Mean Squared Error loss for regression
-
-# Train the model
-history = model.fit(X_train, y_train, epochs=10, batch_size=32, validation_split=0.2)
-
-# Evaluate the model
-test_loss, test_mae = model.evaluate(X_test, y_test)
-
-print("Test Loss:", test_loss)
-print("Test MAE:", test_mae)
-
-y_pred = model.predict(X_test)
+y_pred_dl = dl_model.predict(X_test)
 
 # mean squared error
-mse = mean_squared_error(y_test, y_pred)
+mse_dl = mean_squared_error(y_test, y_pred_dl)
 
 # RMSE
+dl_rmse = np.sqrt(mse_dl)
+
+print("RMSE deep learning model:", dl_rmse)
+"""
+
+#2. Deeper neural network: four hidden layers, convolutional layer
+"""
+dl_model = create_DL_model_deep(X_train.shape[1])
+dl_model.compile(optimizer='adam', loss='mse', metrics=['mae'])  # Mean Squared Error loss for regression
+
+# Train the deeplearning model
+dl_history = dl_model.fit(X_train, y_train, epochs=10, batch_size=32, validation_split=0.2)
+
+#train the machine learning model
+
+# Evaluating the models
+dl_test_loss, dl_test_mae = dl_model.evaluate(X_test, y_test)
+print("Test Loss deep learning model:", dl_test_loss)
+print("Test MAE deep leanring model:", dl_test_mae)
+
+y_pred_dl = dl_model.predict(X_test)
+
+# mean squared error
+mse_dl = mean_squared_error(y_test, y_pred_dl)
+rmse = np.sqrt(mse_dl)
+print('rsme deeper convolutional neural net:', rmse)
+"""
+
+#3: Decision Tree Regressor
+"""
+rf = create_tree_model()
+rf.fit(X_train, y_train)
+
+# Predictions
+y_pred = rf.predict(X_test)
+
+# Evaluation
+mse = mean_squared_error(y_test, y_pred)
 rmse = np.sqrt(mse)
 
 print("RMSE:", rmse)
+"""
+#4. KNN Regressor 
+"""
+n = 3
+knn = create_knn_model(n)
+knn.fit(X_train, y_train)
+
+
+y_pred = knn.predict(X_test)
+mse = mean_squared_error(y_test, y_pred)
+rmse = np.sqrt(mse)
+print("RSME knn regressor:", rmse )
+"""
