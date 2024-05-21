@@ -1,3 +1,4 @@
+import keras.optimizers
 import numpy as np
 import pandas as pd
 import time
@@ -13,8 +14,6 @@ from scipy.stats import randint, uniform
 from scipy.sparse import csr_matrix
 import warnings
 import re
-import numpy as np
-import pandas as pd
 import tensorflow as tf
 from keras import layers, models
 
@@ -25,17 +24,17 @@ warnings.filterwarnings("ignore")
 stemmer = SnowballStemmer('english')
 
 # Read a sample of the training data
-df_train = pd.read_csv("C:/Users/imaan/OneDrive/Bureaublad/DS_A3/data/train.csv", encoding="ISO-8859-1", nrows=10000)
+df_train = pd.read_csv("data\\train.csv", encoding="ISO-8859-1", nrows=20000)
 
 # Split the training data
 #ratio = 0.8
 #df_train, df_test = train_test_split(df_train, test_size=(1-ratio), random_state=42)
 
 # Read a sample of product descriptions data
-df_pro_desc = pd.read_csv('C:/Users/imaan/OneDrive/Bureaublad/DS_A3/data/product_descriptions.csv', nrows=3000)
+df_pro_desc = pd.read_csv('data\\product_descriptions.csv', nrows=20000)
 
 # Read a sample of attributes data
-df_attributes = pd.read_csv('C:/Users/imaan/OneDrive/Bureaublad/DS_A3/data/attributes.csv', nrows=1010)
+df_attributes = pd.read_csv('data\\attributes.csv', nrows=1010)
 
 # Combine data for preprocessing
 df_concatenated = df_attributes.fillna('').groupby('product_uid')['value'].apply(lambda x: ' '.join(x)).reset_index()
@@ -45,11 +44,9 @@ df_all = pd.merge(df_train, df_pro_desc, how='left', on='product_uid')
 df_all = pd.merge(df_all, df_concatenated, how='left', on='product_uid')
 
 
-
 # Stemming function
 def str_stemmer(s):
     return " ".join([stemmer.stem(word) for word in s.lower().split()])
-
 
 
 # Preprocess text data
@@ -71,6 +68,8 @@ df_all['product_title'] = df_all['product_title'].map(lambda x: str_stemmer(x))
 df_all['product_description'] = df_all['product_description'].map(lambda x: str_stemmer(x))
 
 df_all['value'] = df_all['value'].fillna('')
+
+print(df_all['value'])
 
 # TF-IDF Vectorization
 tfidf = TfidfVectorizer(ngram_range=(1, 2), stop_words='english')
@@ -148,16 +147,18 @@ print(df_train['relevance'].value_counts(normalize=True))
 
 """
 
+
 def create_model(input_shape):
     model = models.Sequential()
     model.add(layers.Dense(128, activation='relu', input_shape=(input_shape,)))
     model.add(layers.Dense(64, activation='relu'))
-    model.add(layers.Dense(1))  
+    model.add(layers.Dense(1))
     return model
+
 
 # Compile the model
 model = create_model(X_train.shape[1])
-model.compile(optimizer='adam', loss='mse', metrics=['mae'])  # Mean Squared Error loss for regression
+model.compile(optimizer=keras.optimizers.RMSprop(learning_rate=0.001), loss='mse', metrics=['mae'])  # Mean Squared Error loss for regression
 
 # Train the model
 history = model.fit(X_train, y_train, epochs=10, batch_size=32, validation_split=0.2)
