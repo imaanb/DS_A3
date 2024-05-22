@@ -67,9 +67,13 @@ def create_DL_model_deep(input_shape, units_1=128, units_2=64, units_3=64, units
 
 # ML
 
+# variable: value for k 
 def create_knn_model(n): 
     return KNeighborsRegressor(n)
 
 
-def create_tree_model():
-    return  DecisionTreeRegressor(random_state = 42)
+
+# max dept 
+# min samples per leaf 
+def create_tree_model(max_dept = None, min_samples_leaf = 1 ):
+    return  DecisionTreeRegressor(max_depth= max_dept, min_samples_leaf=min_samples_leaf,  random_state = 42)

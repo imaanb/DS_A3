@@ -14,11 +14,12 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.metrics import accuracy_score
 from sklearn.linear_model import Lasso, Ridge
 from sklearn.svm import SVR
+import matplotlib.pyplot as plt
 from scipy.stats import randint, uniform
 from scipy.sparse import csr_matrix
 import warnings
 import re
-from keras import layers, models
+from keras import layers, models, optimizers
 from sklearn.model_selection import RandomizedSearchCV
 from scikeras.wrappers import KerasRegressor
 from models import create_DL_model_shallow, create_DL_model_deep, create_knn_model, create_tree_model
@@ -138,9 +139,9 @@ X_train, X_test, y_train, y_test = train_test_split(X, df_train['relevance'].val
 
 
 # 1. shallow deep learning network: 2 hidden layers: 
-"""
+import keras
 dl_model = create_DL_model_shallow(X_train.shape[1])
-dl_model.compile(optimizer='adam', loss='mse', metrics=['mae'])  # Mean Squared Error loss for regression
+dl_model.compile(optimizer=keras.optimizers.RMSprop(learning_rate=0.001), loss='mse', metrics=['mae'])  # Mean Squared Error loss for regression
 
 # Train the deeplearning model
 dl_history = dl_model.fit(X_train, y_train, epochs=10, batch_size=32, validation_split=0.2)
@@ -161,22 +162,60 @@ mse_dl = mean_squared_error(y_test, y_pred_dl)
 dl_rmse = np.sqrt(mse_dl)
 
 print("RMSE deep learning model:", dl_rmse)
-"""
+
+
+train_loss = dl_history.history['loss']
+val_loss = dl_history.history['val_loss']
+train_rmse = [np.sqrt(loss) for loss in train_loss]
+val_rmse = [np.sqrt(loss) for loss in val_loss]
+epochs = range(1, len(train_rmse) + 1)
+
+
+plt.figure(figsize=(10, 6))
+plt.plot(epochs, train_rmse, 'b', label='Training RMSE')
+plt.plot(epochs, val_rmse, 'r', label='Validation RMSE')
+plt.title('Training and Validation RMSE per Epoch for shallow neural net')
+plt.xlabel('Epochs')
+plt.ylabel('RMSE')
+plt.legend()
+plt.grid(True)
+plt.show()
 
 #2. Deeper neural network: four hidden layers, convolutional layer
 """
+import keras 
 dl_model = create_DL_model_deep(X_train.shape[1])
-dl_model.compile(optimizer='adam', loss='mse', metrics=['mae'])  # Mean Squared Error loss for regression
+dl_model.compile(optimizer=keras.optimizers.RMSprop(learning_rate=0.001), loss='mse', metrics=['mae'])  # Mean Squared Error loss for regression
 
 # Train the deeplearning model
 dl_history = dl_model.fit(X_train, y_train, epochs=10, batch_size=32, validation_split=0.2)
+"""
+"""
+train_loss = dl_history.history['loss']
+val_loss = dl_history.history['val_loss']
+train_rmse = [np.sqrt(loss) for loss in train_loss]
+val_rmse = [np.sqrt(loss) for loss in val_loss]
+epochs = range(1, len(train_rmse) + 1)
+
+
+plt.figure(figsize=(10, 6))
+plt.plot(epochs, train_rmse, 'b', label='Training RMSE')
+plt.plot(epochs, val_rmse, 'r', label='Validation RMSE')
+plt.title('Training and Validation RMSE per Epoch for deeper neural net')
+plt.xlabel('Epochs')
+plt.ylabel('RMSE')
+plt.legend()
+plt.grid(True)
+plt.show()
+"""
+
 
 #train the machine learning model
 
 # Evaluating the models
 dl_test_loss, dl_test_mae = dl_model.evaluate(X_test, y_test)
 print("Test Loss deep learning model:", dl_test_loss)
-print("Test MAE deep leanring model:", dl_test_mae)
+print("Test MAE deep learning model:", dl_test_mae)
 
 y_pred_dl = dl_model.predict(X_test)
 
@@ -184,31 +223,137 @@ y_pred_dl = dl_model.predict(X_test)
 mse_dl = mean_squared_error(y_test, y_pred_dl)
 rmse = np.sqrt(mse_dl)
 print('rsme deeper convolutional neural net:', rmse)
-"""
+
 
 #3: Decision Tree Regressor
+min_samples_leaf = 10
+max_dept = 10
+min_val = []
+rsme_vals = [] 
+dept_val = []
+time_vals = [] 
+max_dept = []
+
+
+#finding the optimal value for the minimum amount of samples per leaf 
+
 """
-rf = create_tree_model()
-rf.fit(X_train, y_train)
 
-# Predictions
-y_pred = rf.predict(X_test)
+for i in range(1, 10, 5):
+    min_val.append(i)
+    rf = create_tree_model(min_samples_leaf = i)
+    begin_time = time.time()
+    rf.fit(X_train, y_train)
+    end_time = time.time()
+    training_time = end_time-begin_time
+    time_vals.append(training_time)
+    y_pred = rf.predict(X_test)
+    mse = mean_squared_error(y_test, y_pred)
+    rmse = np.sqrt(mse)
+    rsme_vals.append(rmse)
+    print(f"RMSE for minimum leaf = {i}", rmse,"   traning time: ", training_time)
 
-# Evaluation
-mse = mean_squared_error(y_test, y_pred)
-rmse = np.sqrt(mse)
-
-print("RMSE:", rmse)
+    """
+# plots for finding the opt val for  min_samples per leave: 
 """
+plt.figure(figsize=(10, 6))
+plt.plot(min_val, rsme_vals, marker='o', linestyle='-', color='b')
+plt.title('RMSE for random forrest Regression with Different values for minimum instances per leaf')
+plt.xlabel('k')
+plt.ylabel('RMSE')
+plt.grid(True)
+plt.show()
+
+plt.figure(figsize=(10, 6))
+plt.plot(min_val, time_vals, marker='o', linestyle='-', color='b')
+plt.title('Training time for random forrest Regression with Different values for minimum instances per leaf')
+plt.xlabel('k')
+plt.ylabel('training time')
+plt.grid(True)
+plt.show()
+"""
+
+#finding the optimal value for the maximum dept of the tree, after finding 31 = optimal min_sample_leaf
+"""
+for i in range(1, 50, 5):
+    max_dept.append(i)
+    rf = create_tree_model(max_dept = i, min_samples_leaf= 31)
+    begin_time = time.time()
+    rf.fit(X_train, y_train)
+    end_time = time.time()
+    training_time = end_time-begin_time
+    time_vals.append(training_time)
+    y_pred = rf.predict(X_test)
+    mse = mean_squared_error(y_test, y_pred)
+    rmse = np.sqrt(mse)
+    rsme_vals.append(rmse)
+    time_vals.append(training_time)
+    print(f"RMSE for max dept = {i}", rmse,"   traning time: ", training_time)
+"""
+# plots for finding the opt val for  max_dept of the tree per leave: 
+"""
+plt.figure(figsize=(10, 6))
+plt.plot(max_dept, rsme_vals, marker='o', linestyle='-', color='b')
+plt.title('RMSE for random forrest Regression with Different values for the maximum dept of the tree')
+plt.xlabel('max dept')
+plt.ylabel('RMSE')
+plt.grid(True)
+plt.show()
+"""
+
+"""
+plt.figure(figsize=(10, 6))
+plt.plot(dept_val, time_vals, marker='o', linestyle='-', color='b')
+plt.title('Training time for random forrest Regression with Different values for the maximum dept of the tree')
+plt.xlabel('max dept')
+plt.ylabel('training time')
+plt.grid(True)
+plt.show()
+"""
+
+
 #4. KNN Regressor 
+
+n = 20
+k_vals = []
+rsme_vals = []
+
 """
-n = 3
 knn = create_knn_model(n)
+start_time = time.time()
 knn.fit(X_train, y_train)
-
-
+end_time = time.time()
+training_time = end_time-start_time
+print("training time knn", training_time)
 y_pred = knn.predict(X_test)
 mse = mean_squared_error(y_test, y_pred)
 rmse = np.sqrt(mse)
 print("RSME knn regressor:", rmse )
+
+"""
+
+"""
+for i in range(n): 
+    k = 1+i
+    k_vals.append(k)
+    knn = create_knn_model(k)
+    start_time = time.time()
+    knn.fit(X_train, y_train)
+    end_time = time.time()
+    training_time = end_time-start_time
+    print(f"training time knn, k = {k}", training_time)
+    y_pred = knn.predict(X_test)
+    mse = mean_squared_error(y_test, y_pred)
+    rsme = np.sqrt(mse)
+    rsme_vals.append(rsme)
+    print(f"RSME knn regressor, k = {k}:", rsme )
+
+plt.figure(figsize=(10, 6))
+plt.plot(k_vals, rsme_vals, marker='o', linestyle='-', color='b')
+plt.title('RMSE for k-NN Regression with Different k Values')
+plt.xlabel('k')
+plt.ylabel('RMSE')
+plt.grid(True)
+plt.show()
+
 """
